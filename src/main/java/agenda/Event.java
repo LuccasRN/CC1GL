@@ -1,33 +1,19 @@
 package agenda;
 
-import java.time.*;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Event {
-
-    /**
-     * The myTitle of this event
-     */
     private String myTitle;
-    
-    /**
-     * The starting time of the event
-     */
     private LocalDateTime myStart;
-
-    /**
-     * The durarion of the event 
-     */
     private Duration myDuration;
+    private Repetition repetition;
+    private Set<LocalDate> exceptions = new HashSet<>();
 
-
-    /**
-     * Constructs an event
-     *
-     * @param title the title of this event
-     * @param start the start time of this event
-     * @param duration the duration of this event
-     */
     public Event(String title, LocalDateTime start, Duration duration) {
         this.myTitle = title;
         this.myStart = start;
@@ -35,64 +21,106 @@ public class Event {
     }
 
     public void setRepetition(ChronoUnit frequency) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+        this.repetition = new Repetition(frequency);
     }
 
     public void addException(LocalDate date) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+        if (repetition != null) {
+            repetition.addException(date);
+        }
+        exceptions.add(date);
     }
 
     public void setTermination(LocalDate terminationInclusive) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+        if (repetition != null) {
+            LocalDate startDate = myStart.toLocalDate();
+            Termination termination = new Termination(startDate, repetition.getFrequency(), terminationInclusive);
+            repetition.setTermination(termination);
+        }
     }
 
     public void setTermination(long numberOfOccurrences) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+        if (repetition != null) {
+            LocalDate startDate = myStart.toLocalDate();
+            Termination termination = new Termination(startDate, repetition.getFrequency(), numberOfOccurrences);
+            repetition.setTermination(termination);
+        }
     }
 
     public int getNumberOfOccurrences() {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+        if (repetition != null && repetition.getTermination() != null) {
+            return (int) repetition.getTermination().numberOfOccurrences();
+        }
+        return 1;
     }
 
     public LocalDate getTerminationDate() {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+        if (repetition != null && repetition.getTermination() != null) {
+            return repetition.getTermination().terminationDateInclusive();
+        }
+        return myStart.toLocalDate();
     }
 
-    /**
-     * Tests if an event occurs on a given day
-     *
-     * @param aDay the day to test
-     * @return true if the event occurs on that day, false otherwise
-     */
     public boolean isInDay(LocalDate aDay) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+    LocalDate startDate = myStart.toLocalDate();
+    
+    if (repetition == null) {
+        LocalDateTime eventEnd = myStart.plus(myDuration);
+        LocalDate endDate = eventEnd.toLocalDate();
+        return !aDay.isBefore(startDate) && !aDay.isAfter(endDate);
     }
-   
-    /**
-     * @return the myTitle
-     */
+    
+    if (aDay.isBefore(startDate)) {
+        return false;
+    }
+    
+    if (exceptions.contains(aDay)) {
+        return false;
+    }
+    
+    ChronoUnit frequency = repetition.getFrequency();
+    
+    long unitsBetween = frequency.between(startDate, aDay);
+    
+    for (long offset = Math.max(0, unitsBetween - 1); offset <= unitsBetween; offset++) {
+        LocalDate occurrenceDate = startDate.plus(offset, frequency);
+        
+        if (repetition.getTermination() != null) {
+            long maxOccurrences = repetition.getTermination().numberOfOccurrences();
+            if (offset >= maxOccurrences) {
+                continue; 
+            }
+            
+            LocalDate terminationDate = repetition.getTermination().terminationDateInclusive();
+            if (occurrenceDate.isAfter(terminationDate)) {
+                continue; 
+            }
+        }
+        
+        if (exceptions.contains(occurrenceDate)) {
+            continue;
+        }
+        
+        LocalDateTime occurrenceStart = LocalDateTime.of(occurrenceDate, myStart.toLocalTime());
+        LocalDateTime occurrenceEnd = occurrenceStart.plus(myDuration);
+        LocalDate occurrenceEndDate = occurrenceEnd.toLocalDate();
+        
+        if (!aDay.isBefore(occurrenceDate) && !aDay.isAfter(occurrenceEndDate)) {
+            return true;
+        }
+    }
+    
+        return false;
+    }
+
     public String getTitle() {
         return myTitle;
     }
 
-    /**
-     * @return the myStart
-     */
     public LocalDateTime getStart() {
         return myStart;
     }
 
-
-    /**
-     * @return the myDuration
-     */
     public Duration getDuration() {
         return myDuration;
     }
@@ -102,3 +130,4 @@ public class Event {
         return "Event{title='%s', start=%s, duration=%s}".formatted(myTitle, myStart, myDuration);
     }
 }
+
